@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Genre Embedding Explorer</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Vega libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🎵 Spotify Genre Embedding Explorer</h1>
+    <p>Brush clusters in the embedding to explore genres and audio features. Click legend items to highlight genres.</p>
+  </header>
+
+  <main>
+    <!-- MAIN: embedding + linked views -->
+    <section id="embedding-section">
+      <h2>Embedding Space & Linked Views</h2>
+      <div id="embeddingView" class="viz-container"></div>
+    </section>
+  </main>
+
+  <!-- Genre Distribution at bottom -->
+  <section id="genre-section">
+    <div class="genre-panel">
+      <h2>Genre Distribution</h2>
+      <p>Click legend items to highlight genres in the embedding above</p>
+      <div id="genreBarView" class="viz-container"></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Data: Balanced subset of the Spotify audio features dataset (14,000 tracks across 14 genres).
+    </p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
