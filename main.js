@@ -383,6 +383,627 @@ const energyValenceSpec = {
 // Note: Energy-valence view is now part of the combined embedding view,
 // so it automatically shares the brush selection. No separate update function needed.
 
+/**
+ * SECOND EMBEDDING: Multi-view exploration with genre/popularity scatterplots,
+ * pie charts, and album/track exploration
+ */
+
+// Genre color mapping
+const genreColorMap = {
+  "metal": "#4e79a7",
+  "electronic": "#f28e2b",
+  "soul": "#e15759",
+  "funk": "#76b7b2",
+  "house": "#59a14f",
+  "r-n-b": "#edc948",
+  "pop": "#b07aa1",
+  "country": "#ff9da7",
+  "jazz": "#9c755f",
+  "hip-hop": "#8da0cb",
+  "classical": "#a3a5b3",
+  "samba": "#d1a78c"
+};
+
+// Second embedding spec with all the linked views
+// Define selections at top level to share across all views
+const secondEmbeddingSpec = {
+  $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+  description: "Multi-view exploration: genre/popularity scatterplots, pie charts, and album/track views",
+  background: "transparent",
+  config: {
+    axis: {
+      labelColor: "#ffffff",
+      titleColor: "#ffffff",
+      labelFont: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      titleFont: "Poppins, sans-serif",
+      gridColor: "rgba(255, 255, 255, 0.1)",
+      domainColor: "rgba(255, 255, 255, 0.3)"
+    },
+    text: { 
+      color: "#ffffff",
+      font: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontSize: 12
+    },
+    title: {
+      color: "#ffffff",
+      font: "Poppins, sans-serif",
+      fontSize: 14,
+      fontWeight: 600
+    },
+    legend: {
+      labelColor: "#ffffff",
+      titleColor: "#ffffff",
+      labelFont: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      titleFont: "Poppins, sans-serif"
+    },
+    arc: {
+      stroke: "rgba(255, 255, 255, 0.1)"
+    }
+  },
+  hconcat: [
+    {
+      // Left column: Genre scatter + Genre pie
+      vconcat: [
+        {
+          // Genre scatterplot
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "PCA Colored by Genre",
+          data: { url: "embeddings_2d.csv" },
+          width: 500,
+          height: 350,
+          title: {
+            text: "PCA Colored by Genre",
+            color: "#ffffff",
+            font: "Poppins, sans-serif",
+            fontSize: 14,
+            fontWeight: 600
+          },
+          background: "transparent",
+          selection: {
+            brush2: {
+              type: "interval",
+              encodings: ["x", "y"]
+            },
+            genreSelect2: {
+              type: "multi",
+              fields: ["track_genre"],
+              bind: "legend"
+            },
+            genrePieSelect: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            popularityPieSelect: {
+              type: "multi",
+              fields: ["pop_bin"]
+            },
+            albumSelect2: {
+              type: "multi",
+              fields: ["album_name"],
+              empty: "none"
+            },
+            albumBrush: {
+              type: "interval",
+              encodings: ["x"]
+            },
+            trackSelect2: {
+              type: "multi",
+              fields: ["track_name"],
+              empty: "none"
+            }
+          },
+          transform: [
+            {
+              calculate: "datum.popularity < 20 ? '(0,20]' : datum.popularity < 40 ? '(20,40]' : datum.popularity < 60 ? '(40,60]' : datum.popularity < 80 ? '(60,80]' : '(80,100]'",
+              as: "pop_bin"
+            }
+          ],
+          mark: { type: "circle", size: 60 },
+          encoding: {
+            x: {
+              field: "pca1",
+              type: "quantitative",
+              title: "PCA 1",
+              scale: { zero: false }
+            },
+            y: {
+              field: "pca2",
+              type: "quantitative",
+              title: "PCA 2",
+              scale: { zero: false }
+            },
+            color: {
+              condition: {
+                selection: "brush2",
+                field: "track_genre",
+                type: "nominal",
+                scale: {
+                  domain: Object.keys(genreColorMap),
+                  range: Object.values(genreColorMap)
+                }
+              },
+              value: "lightgrey"
+            },
+            opacity: {
+              condition: [
+                { selection: "genreSelect2", value: 1 },
+                { selection: "genrePieSelect", value: 1 },
+                { selection: "popularityPieSelect", value: 1 },
+                { selection: "albumSelect2", value: 1 },
+                { selection: "trackSelect2", value: 1 }
+              ],
+              value: 0
+            },
+            tooltip: [
+              { field: "track_name", type: "nominal", title: "Track" },
+              { field: "album_name", type: "nominal", title: "Album" },
+              { field: "track_genre", type: "nominal", title: "Genre" },
+              { field: "popularity", type: "quantitative", title: "Popularity" }
+            ]
+          }
+        },
+        {
+          // Genre pie chart
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Genre Distribution",
+          data: { url: "embeddings_2d.csv" },
+          width: 500,
+          height: 300,
+          title: {
+            text: "Genre Distribution",
+            color: "#ffffff",
+            font: "Poppins, sans-serif",
+            fontSize: 14,
+            fontWeight: 600
+          },
+          background: "transparent",
+          transform: [
+            {
+              calculate: "datum.popularity < 20 ? '(0,20]' : datum.popularity < 40 ? '(20,40]' : datum.popularity < 60 ? '(40,60]' : datum.popularity < 80 ? '(60,80]' : '(80,100]'",
+              as: "pop_bin"
+            },
+            { filter: { selection: "brush2" } },
+            { filter: { field: "track_genre", oneOf: Object.keys(genreColorMap) } }
+          ],
+          mark: { type: "arc" },
+          encoding: {
+            theta: { aggregate: "count", type: "quantitative", stack: true },
+            color: {
+              field: "track_genre",
+              type: "nominal",
+              scale: {
+                domain: Object.keys(genreColorMap),
+                range: Object.values(genreColorMap)
+              },
+              legend: { title: "Genre" }
+            },
+            opacity: {
+              condition: { selection: "genrePieSelect", value: 1 },
+              value: 0.7
+            },
+            tooltip: [
+              { field: "track_genre", type: "nominal", title: "Genre" },
+              { aggregate: "count", type: "quantitative", title: "Count" }
+            ]
+          },
+          selection: {
+            brush2: {
+              type: "interval",
+              encodings: ["x", "y"]
+            },
+            genreSelect2: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            genrePieSelect: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            popularityPieSelect: {
+              type: "multi",
+              fields: ["pop_bin"]
+            },
+            albumSelect2: {
+              type: "multi",
+              fields: ["album_name"],
+              empty: "none"
+            },
+            albumBrush: {
+              type: "interval",
+              encodings: ["x"]
+            },
+            trackSelect2: {
+              type: "multi",
+              fields: ["track_name"],
+              empty: "none"
+            }
+          }
+        }
+      ],
+      resolve: {
+        selection: {
+          brush2: "union",
+          genreSelect2: "union",
+          genrePieSelect: "union",
+          popularityPieSelect: "union",
+          albumSelect2: "union",
+          albumBrush: "union",
+          trackSelect2: "union"
+        }
+      }
+    },
+    {
+      // Middle column: Popularity scatter + Popularity pie
+      vconcat: [
+        {
+          // Popularity scatterplot
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "PCA Colored by Popularity",
+          data: { url: "embeddings_2d.csv" },
+          width: 500,
+          height: 350,
+          title: {
+            text: "PCA Colored by Popularity",
+            color: "#ffffff",
+            font: "Poppins, sans-serif",
+            fontSize: 14,
+            fontWeight: 600
+          },
+          background: "transparent",
+          transform: [
+            {
+              calculate: "datum.popularity < 20 ? '(0,20]' : datum.popularity < 40 ? '(20,40]' : datum.popularity < 60 ? '(40,60]' : datum.popularity < 80 ? '(60,80]' : '(80,100]'",
+              as: "pop_bin"
+            }
+          ],
+          mark: { type: "circle", size: 60 },
+          encoding: {
+            x: {
+              field: "pca1",
+              type: "quantitative",
+              title: "PCA 1",
+              scale: { zero: false }
+            },
+            y: {
+              field: "pca2",
+              type: "quantitative",
+              title: "PCA 2",
+              scale: { zero: false }
+            },
+            color: {
+              condition: {
+                selection: "brush2",
+                field: "popularity",
+                type: "quantitative",
+                scale: { scheme: "greens" }
+              },
+              value: "lightgrey"
+            },
+            opacity: {
+              condition: [
+                { selection: "genreSelect2", value: 1 },
+                { selection: "genrePieSelect", value: 1 },
+                { selection: "popularityPieSelect", value: 1 },
+                { selection: "albumSelect2", value: 1 },
+                { selection: "trackSelect2", value: 1 }
+              ],
+              value: 0
+            },
+            tooltip: [
+              { field: "track_name", type: "nominal", title: "Track" },
+              { field: "album_name", type: "nominal", title: "Album" },
+              { field: "track_genre", type: "nominal", title: "Genre" },
+              { field: "popularity", type: "quantitative", title: "Popularity" }
+            ]
+          },
+          selection: {
+            brush2: {
+              type: "interval",
+              encodings: ["x", "y"]
+            },
+            genreSelect2: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            genrePieSelect: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            popularityPieSelect: {
+              type: "multi",
+              fields: ["pop_bin"]
+            },
+            albumSelect2: {
+              type: "multi",
+              fields: ["album_name"],
+              empty: "none"
+            },
+            albumBrush: {
+              type: "interval",
+              encodings: ["x"]
+            },
+            trackSelect2: {
+              type: "multi",
+              fields: ["track_name"],
+              empty: "none"
+            }
+          }
+        },
+        {
+          // Popularity pie chart
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Popularity Distribution",
+          data: { url: "embeddings_2d.csv" },
+          width: 500,
+          height: 300,
+          title: {
+            text: "Popularity Distribution",
+            color: "#ffffff",
+            font: "Poppins, sans-serif",
+            fontSize: 14,
+            fontWeight: 600
+          },
+          background: "transparent",
+          transform: [
+            {
+              calculate: "datum.popularity < 20 ? '(0,20]' : datum.popularity < 40 ? '(20,40]' : datum.popularity < 60 ? '(40,60]' : datum.popularity < 80 ? '(60,80]' : '(80,100]'",
+              as: "pop_bin"
+            },
+            { filter: { selection: "brush2" } }
+          ],
+          mark: { type: "arc" },
+          encoding: {
+            theta: { aggregate: "count", type: "quantitative", stack: true },
+            color: {
+              field: "pop_bin",
+              type: "nominal",
+              scale: { scheme: "greens" },
+              legend: { title: "Popularity" }
+            },
+            opacity: {
+              condition: { selection: "popularityPieSelect", value: 1 },
+              value: 0.7
+            },
+            tooltip: [
+              { field: "pop_bin", type: "nominal", title: "Popularity Range" },
+              { aggregate: "count", type: "quantitative", title: "Count" }
+            ]
+          },
+          selection: {
+            brush2: {
+              type: "interval",
+              encodings: ["x", "y"]
+            },
+            genreSelect2: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            genrePieSelect: {
+              type: "multi",
+              fields: ["track_genre"]
+            },
+            popularityPieSelect: {
+              type: "multi",
+              fields: ["pop_bin"]
+            },
+            albumSelect2: {
+              type: "multi",
+              fields: ["album_name"],
+              empty: "none"
+            },
+            albumBrush: {
+              type: "interval",
+              encodings: ["x"]
+            },
+            trackSelect2: {
+              type: "multi",
+              fields: ["track_name"],
+              empty: "none"
+            }
+          }
+        }
+      ],
+      resolve: {
+        selection: {
+          brush2: "union",
+          genreSelect2: "union",
+          genrePieSelect: "union",
+          popularityPieSelect: "union",
+          albumSelect2: "union",
+          albumBrush: "union",
+          trackSelect2: "union"
+        }
+      }
+    },
+    {
+      // Right column: Albums linked views
+      vconcat: [
+        {
+          // Albums bar chart
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Album Popularity",
+          data: { url: "filtered.csv" },
+          width: 600,
+          height: 180,
+          background: "transparent",
+          transform: [
+            {
+              aggregate: [
+                { op: "mean", field: "popularity", as: "mean_popularity" },
+                { op: "count", field: "track_id", as: "num_songs" }
+              ],
+              groupby: ["album_name", "track_genre"]
+            },
+            {
+              filter: "datum.num_songs >= 5 && datum.num_songs <= 15 && datum.mean_popularity > 1"
+            }
+          ],
+          mark: { type: "bar" },
+          encoding: {
+            x: {
+              field: "album_name",
+              type: "nominal",
+              axis: { labels: false, ticks: false, title: "Albums" }
+            },
+            y: {
+              field: "mean_popularity",
+              type: "quantitative",
+              title: "Album Popularity"
+            },
+            color: {
+              condition: { selection: "albumBrush", value: "red" },
+              value: "lightgray"
+            },
+            tooltip: [
+              { field: "album_name", type: "nominal", title: "Album" },
+              { field: "mean_popularity", type: "quantitative", title: "Popularity", format: ".2f" },
+              { field: "num_songs", type: "quantitative", title: "Songs" }
+            ]
+          },
+          selection: {
+            albumBrush: {
+              type: "interval",
+              encodings: ["x"]
+            }
+          }
+        },
+        {
+          // Albums zoomed bar chart
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Album Popularity (Zoomed)",
+          data: { url: "filtered.csv" },
+          width: 600,
+          height: 180,
+          background: "transparent",
+          transform: [
+            {
+              aggregate: [
+                { op: "mean", field: "popularity", as: "mean_popularity" },
+                { op: "count", field: "track_id", as: "num_songs" }
+              ],
+              groupby: ["album_name", "track_genre"]
+            },
+            {
+              filter: "datum.num_songs >= 5 && datum.num_songs <= 15 && datum.mean_popularity > 1"
+            },
+            { filter: { selection: "albumBrush" } }
+          ],
+          mark: { type: "bar" },
+          encoding: {
+            x: {
+              field: "album_name",
+              type: "nominal",
+              axis: { labels: false, ticks: false, title: "Albums (Zoomed)" }
+            },
+            y: {
+              field: "mean_popularity",
+              type: "quantitative",
+              title: "Album Popularity"
+            },
+            color: {
+              condition: { selection: "albumSelect2", value: "red" },
+              value: "lightgray"
+            },
+            tooltip: [
+              { field: "album_name", type: "nominal", title: "Album" },
+              { field: "mean_popularity", type: "quantitative", title: "Popularity", format: ".2f" },
+              { field: "num_songs", type: "quantitative", title: "Songs" }
+            ]
+          },
+          selection: {
+            albumSelect2: {
+              type: "multi",
+              fields: ["album_name"],
+              empty: "none"
+            }
+          }
+        },
+        {
+          // Tracks bar chart
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Selected Album Songs",
+          data: { url: "filtered.csv" },
+          width: 600,
+          height: 180,
+          background: "transparent",
+          transform: [
+            {
+              aggregate: [
+                { op: "mean", field: "popularity", as: "popularity" }
+              ],
+              groupby: ["album_name", "track_name", "track_genre"]
+            },
+            {
+              calculate: "datum.track_name + ' (' + datum.track_genre + ')'",
+              as: "track_with_genre"
+            },
+            { filter: { selection: "albumSelect2" } }
+          ],
+          mark: { type: "bar", size: 30 },
+          encoding: {
+            x: {
+              field: "track_with_genre",
+              type: "nominal",
+              axis: { labels: false, ticks: false, title: "Selected Album Songs" },
+              scale: { paddingInner: 0.5, paddingOuter: 0.5 }
+            },
+            y: {
+              field: "popularity",
+              type: "quantitative",
+              title: "Song Popularity"
+            },
+            color: {
+              condition: {
+                selection: "trackSelect2",
+                field: "track_genre",
+                type: "nominal",
+                title: "Genre"
+              },
+              value: "lightgray"
+            },
+            tooltip: [
+              { field: "track_name", type: "nominal", title: "Track" },
+              { field: "track_genre", type: "nominal", title: "Genre" },
+              { field: "album_name", type: "nominal", title: "Album" },
+              { field: "popularity", type: "quantitative", title: "Popularity", format: ".2f" }
+            ]
+          },
+          selection: {
+            albumSelect2: {
+              type: "multi",
+              fields: ["album_name"],
+              empty: "none"
+            },
+            trackSelect2: {
+              type: "multi",
+              fields: ["track_name"],
+              empty: "none"
+            }
+          }
+        }
+      ],
+      resolve: {
+        selection: {
+          albumBrush: "union",
+          albumSelect2: "union",
+          trackSelect2: "union"
+        }
+      }
+    }
+  ],
+  resolve: {
+    selection: {
+      brush2: "union",
+      genreSelect2: "union",
+      genrePieSelect: "union",
+      popularityPieSelect: "union",
+      albumSelect2: "union",
+      albumBrush: "union",
+      trackSelect2: "union"
+    }
+  }
+};
+
 // Function to update embedding view based on genre selection from bottom bar chart
 function updateEmbeddingView(selectedGenres) {
   // Create a new spec with the selected genres pre-set in the genreHighlight selection
@@ -531,6 +1152,16 @@ window.addEventListener("load", () => {
     console.error("Error embedding genre bar view:", err);
     console.error("Error details:", err.message, err.stack);
     document.getElementById("genreBarView").innerHTML = 
+      "<p style='color: red; padding: 20px;'>Error loading visualization: " + err.message + "</p>";
+  });
+
+  // Embed second embedding view
+  vegaEmbed("#secondEmbeddingView", secondEmbeddingSpec, embedOpts).then(result => {
+    console.log("Second embedding view embedded successfully");
+  }).catch(err => {
+    console.error("Error embedding second view:", err);
+    console.error("Error details:", err.message, err.stack);
+    document.getElementById("secondEmbeddingView").innerHTML = 
       "<p style='color: red; padding: 20px;'>Error loading visualization: " + err.message + "</p>";
   });
 });
